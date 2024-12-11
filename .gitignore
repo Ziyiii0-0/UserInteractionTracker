@@ -4,3 +4,4 @@ tmp/
 backend/uploads/
 *.bak
 *_test.ts
+__pycache__/
