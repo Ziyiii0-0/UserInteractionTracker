@@ -134,38 +134,37 @@ def upload_file():
 @app.route('/interactions', methods=['POST'])
 def interactions():
     data = None
-    json_data = request.form.get('interactions')
+    if request.is_json:
+        json_data = request.get_json()
 
-    if not json_data:
-        return jsonify({'error': 'Interactions not found'}), 400
+        interactions = json_data.get('interactions')
 
-    try:
-        data = json.loads(json_data)
-    except json.JSONDecodeError:
-        return jsonify({'error': 'Invalid JSON data'}), 400
+        if not interactions:
+            return jsonify({'error': 'Interactions not found'}), 400
 
 
-    user_id = request.form.get('user_id')
+        user_id = json_data.get('user_id')
 
-    result, status = check_user(user_id)
-    if status!=200:
-        return result, status
-    else: user_id = result
-
-
-    if data:
-        updated_interactions = [
-            {**interaction, "user_id": ObjectId(user_id)}
-            for interaction in data["interactions"]
-            ]
-
-        interaction_collection.insert_many(updated_interactions)
-
-        return jsonify({'message': f'Interactions added successfully'}), 200
-
-    return jsonify({'error': f'Unknown error'}), 400
+        result, status = check_user(user_id)
+        if status!=200:
+            return result, status
+        else: user_id = result
 
 
+        if interactions:
+            updated_interactions = [
+                {**interaction, "user_id": ObjectId(user_id)}
+                for interaction in interactions
+                ]
+
+            interaction_collection.insert_many(updated_interactions)
+
+            return jsonify({'message': f'Interactions added successfully'}), 200
+
+        return jsonify({'error': f'Unknown error'}), 400
+
+    else:
+        return jsonify({"error": "Content-Type must be application/json"}), 400
 @app.route('/s3url', methods=['GET'])
 def s3url():
 

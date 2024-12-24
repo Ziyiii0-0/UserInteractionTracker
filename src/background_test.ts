@@ -477,7 +477,7 @@ async function downloadDataLocally() {
 
     let user_id = currentUserId || 'unknown'
 
-    const folderName = `${folder_name}/USER_${user_id}`
+    const folderName = `${folder_name}/USER_${user_id}/SESSION_${timestamp}`
 
     const snapshots = await chrome.storage.local.get({ htmlSnapshots: [] })
     const interact = await chrome.storage.local.get({ interactions: [] })
@@ -706,12 +706,6 @@ async function uploadDataToServer() {
     let storeScreenshots = screen.screenshots || []
     let storeReasonsAnnotation = ReasonsAnnotation.reasonsAnnotation || []
 
-    const fullData = {
-      interactions: storeInteractions,
-      reasons: storeReasonsAnnotation,
-      orderDetails: storeOrderDetails
-    }
-
     if (
       !lastGeneratePresignedPostResponse ||
       lastGeneratePresignedPostResponse?.expire_timestamp < Date.now() / 1000 || // prevent from requesting for post url over and over
@@ -729,24 +723,6 @@ async function uploadDataToServer() {
       )
     }
     try {
-      const sessionInfo = new Blob(
-        [
-          `Session data for timestamp: ${timestamp}
-                    \n user id: ${user_id}
-                    \n order details:
-                    \n ${JSON.stringify(orderDetails)}`
-        ],
-        { type: 'text/plain' }
-      )
-      const sessionFormData = presignedFormData(`${folderName}/session_info.txt`)
-      sessionFormData.append('file', sessionInfo)
-
-      console.log('uploading session info')
-      await customFetch(lastGeneratePresignedPostResponse.url, {
-        method: 'POST',
-        body: sessionFormData
-      })
-
       // Upload HTML snapshots as separate files
       console.log('uploading html snapshots')
       for (const [snapshotId, htmlContent] of Object.entries(htmlSnapshots)) {
@@ -782,6 +758,12 @@ async function uploadDataToServer() {
 
       // Upload interactions JSON
       console.log('uploading interactions')
+
+      const fullData = {
+        interactions: storeInteractions,
+        reasons: storeReasonsAnnotation,
+        orderDetails: storeOrderDetails
+      }
       const interactions_json = JSON.stringify(fullData, null, 2)
 
       const interactionsBlob = new Blob([interactions_json], {
@@ -796,15 +778,19 @@ async function uploadDataToServer() {
         body: jsonFormDataFile
       })
 
-      const jsonFormData = new FormData()
+      console.log('adding interactions to db')
 
-      jsonFormData.append('interactions', interactions_json)
-      jsonFormData.append('user_id', user_id)
+      const interactionData = JSON.stringify({
+        interactions: storeInteractions,
+        user_id
+      })
 
-      console.log('uploading interactions as a json')
       await customFetch(interactions_url, {
         method: 'POST',
-        body: jsonFormData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: interactionData
       })
     } catch (error) {
       startPeriodicUpload()
