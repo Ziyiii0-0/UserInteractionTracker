@@ -511,17 +511,6 @@ async function downloadDataLocally() {
     storeReasonsAnnotation = [...seen_storeReasonsAnnotation, ...storeReasonsAnnotation]
 
     if (!zip) {
-      // Upload session info
-      console.log('downloading session info')
-      const sessionInfoContent = `Session data for timestamp: ${timestamp}, user id: ${currentUserId},\n order details: \n ${JSON.stringify(
-        storeorderDetails
-      )}`
-      chrome.downloads.download({
-        url: 'data:text/plain;charset=utf-8,' + encodeURIComponent(sessionInfoContent),
-        filename: `${folderName}/session_info.txt`,
-        saveAs: false
-      })
-
       // Upload HTML snapshots as separate files
       console.log('downloading html snapshots')
       for (const [snapshotId, htmlContent] of Object.entries(htmlSnapshots)) {
@@ -558,14 +547,6 @@ async function downloadDataLocally() {
     } else {
       console.log('downloading zip file')
       const zip = new JSZip()
-      zip.file(
-        'session_info.txt',
-        `Session data for timestamp: ${timestamp}
-          \n user id: ${user_id}
-                \n order details:
-                \n ${JSON.stringify(orderDetails)}`
-      )
-
       const fullData = {
         interactions: storeInteractions,
         reasons: storeReasonsAnnotation,
