@@ -62,7 +62,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 localhost:5000
 
-def check_user(user_id, user_collection):
+def check_user(user_id):
     if not user_id:
         app.logger.error(f'user_id is not available')
         return {'error': f'user_id is not available'}, 400
@@ -98,7 +98,7 @@ def upload_file():
 
     user_id = request.form.get('user_id')
 
-    result, status = check_user(user_id, user_collection=user_collection)
+    result, status = check_user(user_id)
     if status!=200:
         return jsonify(result), status
     else: user_id = result
@@ -147,7 +147,7 @@ def interactions():
 
     user_id = request.form.get('user_id')
 
-    result, status = check_user(user_id, user_collection=user_collection)
+    result, status = check_user(user_id)
     if status!=200:
         return result, status
     else: user_id = result
@@ -166,12 +166,12 @@ def interactions():
     return jsonify({'error': f'Unknown error'}), 400
 
 
-@app.route('/generate_presigned_post', methods=['GET'])
-def generate_presigned_post():
+@app.route('/s3url', methods=['GET'])
+def s3url():
 
     user_id = request.args.get('user_id')
 
-    result, status = check_user(user_id, user_collection=user_collection)
+    result, status = check_user(user_id)
 
     if status!=200:
         return result, status
@@ -252,13 +252,13 @@ def get_interactions_by_date(user_id, date=None, return_data=None ):
             "all_time": n_documents
         }
 
-@app.route('/get_interactions', methods=['GET'])
+@app.route('/interactions', methods=['GET'])
 def get_interactions():
     user_id = request.args.get('user_id')
     date_str = request.args.get('date')  # in 'YYYY-MM-DD' format
     return_data = request.args.get('return')
 
-    result, status = check_user(user_id, user_collection=user_collection)
+    result, status = check_user(user_id)
 
     if status!=200:
         return result, status

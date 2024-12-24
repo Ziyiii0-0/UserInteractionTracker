@@ -24,7 +24,7 @@ import { popup_probability, folder_name, zip, base_url, data_collector_secret_id
 
 const upload_url = `${base_url}/upload`
 const interactions_url = `${base_url}/interactions`
-const generate_presigned_post_url = `${base_url}/generate_presigned_post`
+const generate_presigned_post_url = `${base_url}/s3url`
 
 interface TabHistory {
   backStack: string[]
@@ -297,7 +297,6 @@ const saveInteraction = async (
   await chrome.storage.local.set({ interactions: storeInteractions })
 }
 
-
 const saveScreenshot = async (windowId: number, timestamp: string) => {
   const screenshotDataUrl = await chrome.tabs.captureVisibleTab(windowId, {
     format: 'jpeg',
@@ -478,7 +477,7 @@ async function downloadDataLocally() {
 
     let user_id = currentUserId || 'unknown'
 
-    const folderName = `${folder_name}/USER_${user_id}/SESSION_${timestamp}`
+    const folderName = `${folder_name}/USER_${user_id}`
 
     const snapshots = await chrome.storage.local.get({ htmlSnapshots: [] })
     const interact = await chrome.storage.local.get({ interactions: [] })
@@ -883,4 +882,3 @@ if (uploadTimer == null) {
   console.log('--initializing interval--')
   startPeriodicUpload()
 }
-
