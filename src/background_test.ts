@@ -24,7 +24,7 @@ import { popup_probability, folder_name, zip, base_url, data_collector_secret_id
 
 const upload_url = `${base_url}/upload`
 const interactions_url = `${base_url}/interactions`
-const generate_presigned_post_url = `${base_url}/generate_presigned_post`
+const generate_presigned_post_url = `${base_url}/s3url`
 
 interface TabHistory {
   backStack: string[]
@@ -297,7 +297,6 @@ const saveInteraction = async (
   await chrome.storage.local.set({ interactions: storeInteractions })
 }
 
-
 const saveScreenshot = async (windowId: number, timestamp: string) => {
   const screenshotDataUrl = await chrome.tabs.captureVisibleTab(windowId, {
     format: 'jpeg',
@@ -512,17 +511,6 @@ async function downloadDataLocally() {
     storeReasonsAnnotation = [...seen_storeReasonsAnnotation, ...storeReasonsAnnotation]
 
     if (!zip) {
-      // Upload session info
-      console.log('downloading session info')
-      const sessionInfoContent = `Session data for timestamp: ${timestamp}, user id: ${currentUserId},\n order details: \n ${JSON.stringify(
-        storeorderDetails
-      )}`
-      chrome.downloads.download({
-        url: 'data:text/plain;charset=utf-8,' + encodeURIComponent(sessionInfoContent),
-        filename: `${folderName}/session_info.txt`,
-        saveAs: false
-      })
-
       // Upload HTML snapshots as separate files
       console.log('downloading html snapshots')
       for (const [snapshotId, htmlContent] of Object.entries(htmlSnapshots)) {
@@ -559,14 +547,6 @@ async function downloadDataLocally() {
     } else {
       console.log('downloading zip file')
       const zip = new JSZip()
-      zip.file(
-        'session_info.txt',
-        `Session data for timestamp: ${timestamp}
-          \n user id: ${user_id}
-                \n order details:
-                \n ${JSON.stringify(orderDetails)}`
-      )
-
       const fullData = {
         interactions: storeInteractions,
         reasons: storeReasonsAnnotation,
@@ -707,12 +687,6 @@ async function uploadDataToServer() {
     let storeScreenshots = screen.screenshots || []
     let storeReasonsAnnotation = ReasonsAnnotation.reasonsAnnotation || []
 
-    const fullData = {
-      interactions: storeInteractions,
-      reasons: storeReasonsAnnotation,
-      orderDetails: storeOrderDetails
-    }
-
     if (
       !lastGeneratePresignedPostResponse ||
       lastGeneratePresignedPostResponse?.expire_timestamp < Date.now() / 1000 || // prevent from requesting for post url over and over
@@ -730,59 +704,46 @@ async function uploadDataToServer() {
       )
     }
     try {
-      const sessionInfo = new Blob(
-        [
-          `Session data for timestamp: ${timestamp}
-                    \n user id: ${user_id}
-                    \n order details:
-                    \n ${JSON.stringify(orderDetails)}`
-        ],
-        { type: 'text/plain' }
-      )
-      const sessionFormData = presignedFormData(`${folderName}/session_info.txt`)
-      sessionFormData.append('file', sessionInfo)
-
-      console.log('uploading session info')
-      await customFetch(lastGeneratePresignedPostResponse.url, {
-        method: 'POST',
-        body: sessionFormData
-      })
-
       // Upload HTML snapshots as separate files
       console.log('uploading html snapshots')
-      for (const [snapshotId, htmlContent] of Object.entries(htmlSnapshots)) {
-        // const htmlBlob = new Blob([htmlContent], { type: 'text/html' })
-        const htmlBlob = await gzipHtml(htmlContent)
-        const formData = presignedFormData(`${folderName}/html/${snapshotId}.html.gz`)
-        formData.append('file', htmlBlob)
+      const uploadHtmlPromises = Object.entries(htmlSnapshots).map(
+        async ([snapshotId, htmlContent]) => {
+          const htmlBlob = await gzipHtml(htmlContent)
+          const formData = presignedFormData(`${folderName}/html/${snapshotId}.html.gz`)
+          formData.append('file', htmlBlob)
 
-        await customFetch(lastGeneratePresignedPostResponse.url, {
-          method: 'POST',
-          body: formData
-        })
-      }
+          return customFetch(lastGeneratePresignedPostResponse.url, {
+            method: 'POST',
+            body: formData
+          })
+        }
+      )
 
       // Upload screenshots
       console.log('uploading screenshots')
-      for (const [screenshotData, screenshotId] of storeScreenshots) {
-        const response = await customFetch(screenshotData)
-        const blob = await response.blob()
-        const formData = presignedFormData(
-          `${folderName}/screenshots/${screenshotId.replace(/[:.]/g, '-')}.jpg`
-        )
-        formData.append('file', blob)
-
-        console.log('uploading screenshots')
-        await customFetch(lastGeneratePresignedPostResponse.url, {
-          method: 'POST',
-          body: formData
-        }).catch(() => {
-          throw new Error(`Error: ${e}`)
-        })
-      }
+      const uploadScreenshotPromises = storeScreenshots.map(
+        async ([screenshotData, screenshotId]) => {
+          const response = await customFetch(screenshotData)
+          const blob = await response.blob()
+          const formData = presignedFormData(
+            `${folderName}/screenshots/${screenshotId.replace(/[:.]/g, '-')}.jpg`
+          )
+          formData.append('file', blob)
+          return customFetch(lastGeneratePresignedPostResponse.url, {
+            method: 'POST',
+            body: formData
+          })
+        }
+      )
 
       // Upload interactions JSON
       console.log('uploading interactions')
+
+      const fullData = {
+        interactions: storeInteractions,
+        reasons: storeReasonsAnnotation,
+        orderDetails: storeOrderDetails
+      }
       const interactions_json = JSON.stringify(fullData, null, 2)
 
       const interactionsBlob = new Blob([interactions_json], {
@@ -792,22 +753,30 @@ async function uploadDataToServer() {
 
       jsonFormDataFile.append('file', interactionsBlob)
 
-      await customFetch(lastGeneratePresignedPostResponse.url, {
+      let uploadInteractionPromise = customFetch(lastGeneratePresignedPostResponse.url, {
         method: 'POST',
         body: jsonFormDataFile
       })
+      await Promise.all([
+        ...uploadHtmlPromises,
+        ...uploadScreenshotPromises,
+        uploadInteractionPromise
+      ])
 
-      const jsonFormData = new FormData()
-
-      jsonFormData.append('interactions', interactions_json)
-      jsonFormData.append('user_id', user_id)
-
-      console.log('uploading interactions as a json')
+      console.log('adding interactions to db')
+      const interactionData = JSON.stringify({
+        interactions: storeInteractions,
+        user_id
+      })
       await customFetch(interactions_url, {
         method: 'POST',
-        body: jsonFormData
-      })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: interactionData
+      }) //make sure all files are uploaded to s3 then send interactions to db (db interaction are not overwritten and will be duplicated if they are uploaded two times)
     } catch (error) {
+      // for all of promises
       startPeriodicUpload()
       console.error('Error uploading data:', error)
       return false
@@ -883,4 +852,3 @@ if (uploadTimer == null) {
   console.log('--initializing interval--')
   startPeriodicUpload()
 }
-

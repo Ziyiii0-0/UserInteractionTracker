@@ -62,7 +62,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 localhost:5000
 
-def check_user(user_id, user_collection):
+def check_user(user_id):
     if not user_id:
         app.logger.error(f'user_id is not available')
         return {'error': f'user_id is not available'}, 400
@@ -98,7 +98,7 @@ def upload_file():
 
     user_id = request.form.get('user_id')
 
-    result, status = check_user(user_id, user_collection=user_collection)
+    result, status = check_user(user_id)
     if status!=200:
         return jsonify(result), status
     else: user_id = result
@@ -134,44 +134,43 @@ def upload_file():
 @app.route('/interactions', methods=['POST'])
 def interactions():
     data = None
-    json_data = request.form.get('interactions')
+    if request.is_json:
+        json_data = request.get_json()
 
-    if not json_data:
-        return jsonify({'error': 'Interactions not found'}), 400
+        interactions = json_data.get('interactions')
 
-    try:
-        data = json.loads(json_data)
-    except json.JSONDecodeError:
-        return jsonify({'error': 'Invalid JSON data'}), 400
+        if not interactions:
+            return jsonify({'error': 'Interactions not found'}), 400
 
 
-    user_id = request.form.get('user_id')
+        user_id = json_data.get('user_id')
 
-    result, status = check_user(user_id, user_collection=user_collection)
-    if status!=200:
-        return result, status
-    else: user_id = result
-
-
-    if data:
-        updated_interactions = [
-            {**interaction, "user_id": ObjectId(user_id)}
-            for interaction in data["interactions"]
-            ]
-
-        interaction_collection.insert_many(updated_interactions)
-
-        return jsonify({'message': f'Interactions added successfully'}), 200
-
-    return jsonify({'error': f'Unknown error'}), 400
+        result, status = check_user(user_id)
+        if status!=200:
+            return result, status
+        else: user_id = result
 
 
-@app.route('/generate_presigned_post', methods=['GET'])
-def generate_presigned_post():
+        if interactions:
+            updated_interactions = [
+                {**interaction, "user_id": ObjectId(user_id)}
+                for interaction in interactions
+                ]
+
+            interaction_collection.insert_many(updated_interactions)
+
+            return jsonify({'message': f'Interactions added successfully'}), 200
+
+        return jsonify({'error': f'Unknown error'}), 400
+
+    else:
+        return jsonify({"error": "Content-Type must be application/json"}), 400
+@app.route('/s3url', methods=['GET'])
+def s3url():
 
     user_id = request.args.get('user_id')
 
-    result, status = check_user(user_id, user_collection=user_collection)
+    result, status = check_user(user_id)
 
     if status!=200:
         return result, status
@@ -252,13 +251,13 @@ def get_interactions_by_date(user_id, date=None, return_data=None ):
             "all_time": n_documents
         }
 
-@app.route('/get_interactions', methods=['GET'])
+@app.route('/interactions', methods=['GET'])
 def get_interactions():
     user_id = request.args.get('user_id')
     date_str = request.args.get('date')  # in 'YYYY-MM-DD' format
     return_data = request.args.get('return')
 
-    result, status = check_user(user_id, user_collection=user_collection)
+    result, status = check_user(user_id)
 
     if status!=200:
         return result, status
@@ -275,24 +274,6 @@ def get_interactions():
     interactions = get_interactions_by_date(user_id, date, return_data)
 
     return jsonify(interactions)
-
-
-@app.route('/get_all_users', methods=['GET'])
-def get_all_users():
-    user_id = request.args.get('user_id')
-    date_str = request.args.get('date')  # in 'YYYY-MM-DD' format
-
-    result, status = check_user(user_id, user_collection=user_collection)
-
-    # if status!=200:
-    #     return result, status
-    # else: user_id = result
-
-    all_users = user_collection.find({})
-    all_users = [{**item, "_id":str(item["_id"])} for item in all_users]
-
-    return list(all_users),200
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
