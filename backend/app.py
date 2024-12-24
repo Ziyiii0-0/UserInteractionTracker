@@ -276,23 +276,5 @@ def get_interactions():
 
     return jsonify(interactions)
 
-
-@app.route('/get_all_users', methods=['GET'])
-def get_all_users():
-    user_id = request.args.get('user_id')
-    date_str = request.args.get('date')  # in 'YYYY-MM-DD' format
-
-    result, status = check_user(user_id, user_collection=user_collection)
-
-    # if status!=200:
-    #     return result, status
-    # else: user_id = result
-
-    all_users = user_collection.find({})
-    all_users = [{**item, "_id":str(item["_id"])} for item in all_users]
-
-    return list(all_users),200
-
-
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
