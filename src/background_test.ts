@@ -706,36 +706,35 @@ async function uploadDataToServer() {
     try {
       // Upload HTML snapshots as separate files
       console.log('uploading html snapshots')
-      for (const [snapshotId, htmlContent] of Object.entries(htmlSnapshots)) {
-        // const htmlBlob = new Blob([htmlContent], { type: 'text/html' })
-        const htmlBlob = await gzipHtml(htmlContent)
-        const formData = presignedFormData(`${folderName}/html/${snapshotId}.html.gz`)
-        formData.append('file', htmlBlob)
+      const uploadHtmlPromises = Object.entries(htmlSnapshots).map(
+        async ([snapshotId, htmlContent]) => {
+          const htmlBlob = await gzipHtml(htmlContent)
+          const formData = presignedFormData(`${folderName}/html/${snapshotId}.html.gz`)
+          formData.append('file', htmlBlob)
 
-        await customFetch(lastGeneratePresignedPostResponse.url, {
-          method: 'POST',
-          body: formData
-        })
-      }
+          return customFetch(lastGeneratePresignedPostResponse.url, {
+            method: 'POST',
+            body: formData
+          })
+        }
+      )
 
       // Upload screenshots
       console.log('uploading screenshots')
-      for (const [screenshotData, screenshotId] of storeScreenshots) {
-        const response = await customFetch(screenshotData)
-        const blob = await response.blob()
-        const formData = presignedFormData(
-          `${folderName}/screenshots/${screenshotId.replace(/[:.]/g, '-')}.jpg`
-        )
-        formData.append('file', blob)
-
-        console.log('uploading screenshots')
-        await customFetch(lastGeneratePresignedPostResponse.url, {
-          method: 'POST',
-          body: formData
-        }).catch(() => {
-          throw new Error(`Error: ${e}`)
-        })
-      }
+      const uploadScreenshotPromises = storeScreenshots.map(
+        async ([screenshotData, screenshotId]) => {
+          const response = await customFetch(screenshotData)
+          const blob = await response.blob()
+          const formData = presignedFormData(
+            `${folderName}/screenshots/${screenshotId.replace(/[:.]/g, '-')}.jpg`
+          )
+          formData.append('file', blob)
+          return customFetch(lastGeneratePresignedPostResponse.url, {
+            method: 'POST',
+            body: formData
+          })
+        }
+      )
 
       // Upload interactions JSON
       console.log('uploading interactions')
@@ -754,26 +753,30 @@ async function uploadDataToServer() {
 
       jsonFormDataFile.append('file', interactionsBlob)
 
-      await customFetch(lastGeneratePresignedPostResponse.url, {
+      let uploadInteractionPromise = customFetch(lastGeneratePresignedPostResponse.url, {
         method: 'POST',
         body: jsonFormDataFile
       })
+      await Promise.all([
+        ...uploadHtmlPromises,
+        ...uploadScreenshotPromises,
+        uploadInteractionPromise
+      ])
 
       console.log('adding interactions to db')
-
       const interactionData = JSON.stringify({
         interactions: storeInteractions,
         user_id
       })
-
       await customFetch(interactions_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: interactionData
-      })
+      }) //make sure all files are uploaded to s3 then send interactions to db (db interaction are not overwritten and will be duplicated if they are uploaded two times)
     } catch (error) {
+      // for all of promises
       startPeriodicUpload()
       console.error('Error uploading data:', error)
       return false
