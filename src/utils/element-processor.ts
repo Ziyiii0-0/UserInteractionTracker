@@ -37,6 +37,10 @@ export function processElement(
   } else if (recipe.add_text) {
     elementText = element.innerText || element.textContent || ''
   }
+  if (elementText == null) {
+    console.log(element)
+    console.log(elementText)
+  }
   elementText = elementText.replace(/\s+/g, ' ').trim()
   if (recipe.text_format) {
     elementText = recipe.text_format.replace('{}', elementText)
