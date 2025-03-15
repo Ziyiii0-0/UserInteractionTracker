@@ -542,7 +542,7 @@ export const carousel_card = {
   name: 'from_text',
   text_js: (em) => {
     const titleEm = em.querySelector(
-      'a div[class*="sc-truncate-desktop"], a span.title, a div[class*="sc-css-line-clamp"], a span[class*="titleR3"], div[data-cy="title-recipe"], a[id*="title"]'
+      'a div[class*="sc-truncate-desktop"], a span.title, a div[class*="sc-css-line-clamp"], a span[class*="titleR3"], div[data-cy="title-recipe"], a[id*="title"], a.sw-product-title'
     )
     const title = titleEm?.title || titleEm?.innerText || ''
     return title
@@ -550,7 +550,7 @@ export const carousel_card = {
   children: [
     {
       selector:
-        'a:has(img[class*="product-image"], img.a-dynamic-image, img[class*="carousel-image"]), img.s-image, a[target="_top"]:has(img):not(:has(div, span))',
+        'a:has(img[class*="product-image"], img.a-dynamic-image, img[class*="carousel-image"]), img.s-image, a[target="_top"]:has(img):not(:has(div, span)), a.sw-product-image-link',
       name: 'product_image',
       add_text: true,
       text_format: 'Product Image',
@@ -558,7 +558,7 @@ export const carousel_card = {
     },
     {
       selector:
-        'a div[class*="sc-truncate-desktop"], a div:has(> span.title), a div[class*="sc-css-line-clamp"], a:has(span[class*="titleR3"]), div[data-cy="title-recipe"], a[id*="title"]',
+        'a div[class*="sc-truncate-desktop"], a div:has(> span.title), a div[class*="sc-css-line-clamp"], a:has(span[class*="titleR3"]), div[data-cy="title-recipe"], a[id*="title"], a.sw-product-title',
       add_text: true,
       name: 'product_title',
       clickable: true
@@ -645,15 +645,25 @@ export const carousel_card = {
     }
   ],
   generate_metadata: (em) => {
+    const asinJSONString = em
+      .querySelector('div[data-adfeedbackdetails]')
+      ?.getAttribute('data-adfeedbackdetails')
+    let asinJSON
+    if (asinJSONString !== undefined) {
+      asinJSON = JSON.parse(asinJSONString)
+    }
     const asinEm = em.querySelector(
       'div[id*="sc-turbo-container"], div[data-asin], input[data-asin]'
     )
     const asin =
-      asinEm?.getAttribute('data-asin') || asinEm?.getAttribute('id')?.split('-').pop() || ''
+      asinEm?.getAttribute('data-asin') ||
+      asinEm?.getAttribute('id')?.split('-').pop() ||
+      asinJSON?.asinId ||
+      ''
     const priceEm = em.querySelector('a span[class*="sc-price"], span.a-price span.a-offscreen')
     const price = priceEm?.innerText?.replace(/[\n]/g, '')
     const titleEm = em.querySelector(
-      'a div[class*="sc-truncate-desktop"], a span.title, a div[class*="sc-css-line-clamp"], a span[class*="titleR3"], div[data-cy="title-recipe"], a[id*="title"]'
+      'a div[class*="sc-truncate-desktop"], a span.title, a div[class*="sc-css-line-clamp"], a span[class*="titleR3"], div[data-cy="title-recipe"], a[id*="title"], a.sw-product-title'
     )
     const title = titleEm?.title || titleEm?.innerText || ''
     const urlEm = em.querySelector(
@@ -690,11 +700,11 @@ export const cart = [
         },
         children: [
           {
-            selector: 'a h2 img',
+            selector: 'div.sc-cart-header:has(a h2 img)',
             clickable: true,
             name: 'from_text',
             text_js: (em) => {
-              return em.alt
+              return em.querySelector('a h2 img')?.alt || ''
             }
           },
           {
@@ -776,7 +786,8 @@ export const cart = [
             selector: 'div.sc-item-content-group span.sc-quantity-stepper',
             children: [
               {
-                selector: "button[aria-label='Decrease quantity by one']",
+                selector:
+                  "button[aria-label='Decrease quantity by one'], button[data-action='a-stepper-decrement']",
                 add_text: true,
                 text_js: function (element) {
                   if (element.hasAttribute('aria-label')) {
@@ -1058,7 +1069,7 @@ export const fresh_cart = [
                 selector: 'div.qs-widget-container',
                 children: [
                   {
-                    selector: "input[aria-label='Remove']",
+                    selector: "input[aria-label^='Remove']",
                     add_text: true,
                     text_js: function (element) {
                       if (element.hasAttribute('aria-label')) {
@@ -1103,7 +1114,7 @@ export const fresh_cart = [
                     name: 'from_text'
                   },
                   {
-                    selector: "input[aria-label='Add']",
+                    selector: "input[aria-label^='Add']",
                     add_text: true,
                     text_js: function (element) {
                       if (element.hasAttribute('aria-label')) {
@@ -4145,6 +4156,19 @@ export const recipes = [
                 add_text: true,
                 clickable: true,
                 name: 'go_to_cart'
+              },
+              {
+                selector:
+                  'div.sw-atf-recommendations-container div[id^="CardInstance"], div#smart-wagon-recommendations-btf div[id^="CardInstance"]',
+                text_selector: 'h1.a-carousel-heading',
+                name: 'from_text',
+                children: [
+                  {
+                    selector: 'h1.a-carousel-heading',
+                    add_text: true
+                  },
+                  carousel_card
+                ]
               }
             ]
           }
@@ -4201,6 +4225,19 @@ export const recipes = [
                 clickable: true,
                 name: 'go_to_cart'
               }
+            ]
+          },
+          {
+            selector:
+              'div.sw-atf-recommendations-container div[id^="CardInstance"], div#smart-wagon-recommendations-btf div[id^="CardInstance"]',
+            text_selector: 'h1.a-carousel-heading',
+            name: 'from_text',
+            children: [
+              {
+                selector: 'h1.a-carousel-heading',
+                add_text: true
+              },
+              carousel_card
             ]
           }
         ]
