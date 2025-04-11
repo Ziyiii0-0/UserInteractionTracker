@@ -117,7 +117,7 @@ def sessionize_interactions(user_name,save_to_db=False):
                             "end_time": current_session["end_time"].strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
                             "uuid_list_length": len(current_session["uuid_list"]),
                             })
-                            
+
                         session_num+=1
                     current_session = {
                         "start_time": None,
@@ -157,7 +157,7 @@ def sessionize_interactions(user_name,save_to_db=False):
 
     print(f"user_name: {user_name}, processed_time: {datetime.now(timezone.utc).isoformat()},number_of_sessions: {session_num}")
 
-    
+
 
 if __name__ == "__main__":
     # from extract_purchase_info_db import get_username_from_args

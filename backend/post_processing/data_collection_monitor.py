@@ -14,17 +14,17 @@ def analyze_user_data(user_name, date):
     # Fetch interactions for the specified date
     interactions = list(get_interactions_by_date(user_name, date))
     interaction_count = len(interactions)
-    
+
     # Get the latest interaction timestamp directly from database
     latest_interaction = interaction_collection.find(
         {"user_name": user_name}
     ).sort("timestamp", -1).limit(1)
-    
+
     latest_interaction_timestamp = None
     latest_interaction_list = list(latest_interaction)
     if latest_interaction_list:
         latest_interaction_timestamp = latest_interaction_list[0].get("timestamp")
-    
+
     if date is None:
         date = datetime.now(timezone.utc)
     if isinstance(date, str):
