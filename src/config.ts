@@ -34,4 +34,4 @@ export const filter_url = [
 export const scroll_threshold = 300
 export const scroll_popup_interval = 15 * 1000 // 15 seconds
 export const new_session_interval = 1000 * 60 * 60 * 6 // 4 hours
-export const current_week_info_url = `${base_url}/current_week_info`
+export const every_week_info_url = `${base_url}/every_week_info`

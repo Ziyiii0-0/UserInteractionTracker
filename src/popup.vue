@@ -5,7 +5,7 @@ import {
   interaction_status_url,
   rationale_status_url,
   purchase_status_url,
-  current_week_info_url
+  every_week_info_url
 } from './config'
 import { shouldExclude } from './utils/util'
 import { NButton, NInput, NDivider, NProgress, NTooltip } from 'naive-ui'
@@ -142,7 +142,7 @@ const handleClearCache = () => {
 
 const fetchCurrentWeekInfo = async (userId) => {
   try {
-    const response = await fetch(`${current_week_info_url}?user_id=${userId}`, {
+    const response = await fetch(`${every_week_info_url}?user_id=${userId}`, {
       method: 'GET'
     })
     const data = await response.json()

@@ -489,60 +489,71 @@ def all_user_list():
     user_list = user_collection.find({"user_name": {"$ne": ""}}, {"_id": 0, "user_name": 1})
     return jsonify(list(user_list)), 200
 
-@app.route("/api/current_week_info", methods=["GET"])
-def current_week_info():
-    user_name = request.args.get("user_id")
-    result, status = check_user(user_name, user_collection=user_collection)
-    if status != 200:
-        return result, status
-    else:
-        user_name = result
+@app.route("/api/every_week_info", methods=["GET"])  
+def every_week_info():  
+    user_name = request.args.get("user_id")  
+    result, status = check_user(user_name, user_collection=user_collection)  
+    if status != 200:  
+        return result, status  
+    else:  
+        user_name = result  
 
-    earliest_interaction = interaction_collection.find(
-        {"user_name": user_name}
-    ).sort("timestamp", 1).limit(1)
+    earliest_interaction = interaction_collection.find(  
+        {"user_name": user_name}  
+    ).sort("timestamp", 1).limit(1)  
 
-    earliest_interaction_list = list(earliest_interaction)
+    earliest_interaction_list = list(earliest_interaction)  
 
-    if not earliest_interaction_list:
-        earliest_date = datetime.now()
-        current_week = 1
-    else:
-        earliest_timestamp_str = earliest_interaction_list[0]["timestamp"]
-        earliest_date = datetime.strptime(earliest_timestamp_str[:10], "%Y-%m-%d")
+    if not earliest_interaction_list:  
+        earliest_date = datetime.now()  
+        current_week = 1  
+        total_weeks = 1  
+    else:  
+        earliest_timestamp_str = earliest_interaction_list[0]["timestamp"]  
+        earliest_date = datetime.strptime(earliest_timestamp_str[:10], "%Y-%m-%d")  
 
-        current_date = datetime.now()
-        days_difference = (current_date - earliest_date).days
-        current_week = (days_difference // 7) + 1
+        current_date = datetime.now()  
+        days_difference = (current_date - earliest_date).days  
+        current_week = (days_difference // 7) + 1  
+        total_weeks = current_week  
 
-    week_start = earliest_date + timedelta(days=((current_week-1) * 7))
-    week_end = earliest_date + timedelta(days=(current_week * 7) - 1)
+    weeks_data = []  
 
-    week_start_str = week_start.strftime("%b %d")
-    week_end_str = week_end.strftime("%b %d")
+    for week_num in range(1, total_weeks + 1):  
+        week_start = earliest_date + timedelta(days=((week_num-1) * 7))  
+        week_end = earliest_date + timedelta(days=(week_num * 7) - 1)  
 
-    week_start_timestamp = week_start.strftime("%Y-%m-%dT00:00:00.000Z")
-    week_end_timestamp = (week_end + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000Z")
+        week_start_str = week_start.strftime("%b %d")  
+        week_end_str = week_end.strftime("%b %d")  
 
-    rationale_count = rationale_collection.count_documents({
-        "user_name": user_name,
-        "timestamp": {"$gte": week_start_timestamp, "$lt": week_end_timestamp},
-        "eventType": {"$ne": "new_session"}
-    })
+        week_start_timestamp = week_start.strftime("%Y-%m-%dT00:00:00.000Z")  
+        week_end_timestamp = (week_end + timedelta(days=1)).strftime("%Y-%m-%dT00:00:00.000Z")  
 
-    order_count = order_processed_collection.count_documents({
-        "user_name": user_name,
-        "timestamp": {"$gte": week_start_timestamp, "$lt": week_end_timestamp}
-    })
+        rationale_count = rationale_collection.count_documents({  
+            "user_name": user_name,  
+            "timestamp": {"$gte": week_start_timestamp, "$lt": week_end_timestamp},  
+            "eventType": {"$ne": "new_session"}  
+        })  
 
+        order_count = order_processed_collection.count_documents({  
+            "user_name": user_name,  
+            "timestamp": {"$gte": week_start_timestamp, "$lt": week_end_timestamp}  
+        })  
 
-    return jsonify({
-        "weekNumber": current_week,
-        "startDate": week_start_str,
-        "endDate": week_end_str,
-        "reasonProgress": rationale_count,
-        "purchaseProgress": order_count
-    }), 200
+        weeks_data.append({  
+            "weekNumber": week_num,  
+            "startDate": week_start_str,  
+            "endDate": week_end_str,  
+            "reasonProgress": rationale_count,  
+            "purchaseProgress": order_count,  
+            "isCurrentWeek": week_num == current_week  
+        })  
+
+    return jsonify({  
+        "currentWeek": current_week,  
+        "totalWeeks": total_weeks,  
+        "allWeeks": weeks_data  
+    }), 200  
 
 @app.route("/api/all_users_data", methods=["GET"])
 @api_key_required

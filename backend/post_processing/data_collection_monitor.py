@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from datetime import datetime, timezone, timedelta
-from abnormal_detection import abnormal_detection, get_interactions_by_date
+from .abnormal_detection import abnormal_detection, get_interactions_by_date
 import config
 
 # Initialize MongoDB client
